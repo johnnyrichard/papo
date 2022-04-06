@@ -1,0 +1,28 @@
+PAPO
+====
+
+Minimal IRC Server implementation.
+
+DEVELOPMENT
+-----------
+
+Requirements:
+
+ 1) gcc
+
+Compiling instructions:
+
+    $ make
+
+CONTRIBUTE
+----------
+
+We accept patches on our mailing list[1] (use git-send-email to avoid issues
+with your patches). We recommend you to follow the mailing etiquette[2] before
+send/reply emails to our mailing list.
+
+---
+
+Links:
+[1]: ~johnnyrichard/papo-devel@lists.sr.ht
+[2]: https://man.sr.ht/lists.sr.ht/etiquette.md
