@@ -8,81 +8,73 @@
 #include <unistd.h>
 
 #define SERVER_PORT 6667
+#define BUFFER_SIZE 1024
+#define EXIT_COMMAND "exit"
 
 int main() {
-  struct sockaddr_in server;
   int server_fd = socket(AF_INET, SOCK_STREAM, 0);
-
   if (server_fd == -1) {
-    perror("Unable to create a socket");
+    perror("[ERROR] unable to create a socket");
     return EXIT_FAILURE;
   }
 
+  struct sockaddr_in server;
   server.sin_addr.s_addr = htonl(INADDR_ANY);
   server.sin_family = AF_INET;
   server.sin_port = htons(SERVER_PORT);
 
-  int binderr = bind(server_fd, (struct sockaddr *) &server, sizeof(server));
+  int opt_val = 1;
+  setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &opt_val, sizeof(opt_val));
 
-  if (binderr == -1) {
-    perror("Could not bind");
+  if (bind(server_fd, (struct sockaddr *) &server, sizeof(server)) == -1) {
+    perror("[ERROR] could not bind");
+    close(server_fd);
     return EXIT_FAILURE;
   }
 
-  int listenerr = listen(server_fd, SOMAXCONN);
-
-  if (listenerr == -1) {
-    perror("Could not listen");
+  if (listen(server_fd, SOMAXCONN) == -1) {
+    perror("[ERROR] could not listen");
+    close(server_fd);
     return EXIT_FAILURE;
   }
 
-  printf("Server listening at %d\n", SERVER_PORT);
+  printf("[INFO] server listening at port (%d)\n", SERVER_PORT);
 
   struct sockaddr_in client;
   socklen_t client_len = sizeof(client);
 
-  int client_fd = accept(server_fd, (struct sockaddr *)&client, &client_len);
-
+  int client_fd = accept(server_fd, (struct sockaddr *) &client, &client_len);
   if (client_fd == -1) {
-    perror("Could not accept connections");
-    exit(1);
+    perror("[ERROR] could not accept connection");
+    close(server_fd);
     return EXIT_FAILURE;
   }
 
-  char exit[] = "EXIT\r\n";
+  bool running = true;
 
-  while (true) {
-    char client_buf[1024];
+  while (running) {
+    char client_buf[BUFFER_SIZE];
+    memset(client_buf, 0, BUFFER_SIZE);
 
-    memset(client_buf, 0, 1024);
-
-    read(client_fd, client_buf, 1024);
-
-    printf("RECEIVED: %s\n", client_buf);
-
-    for (int i=0; client_buf[i] != 0; i++) {
-      printf("%d-", (int) client_buf[i]);
+    if (recv(client_fd, client_buf, BUFFER_SIZE, 0) == -1) {
+      perror("[ERROR] could not read data from client");
+      continue;
     }
 
-    putchar(0xa);
-
-    for (int i = 0; exit[i] != 0; i++) {
-      printf("%d-", (int)exit[i]);
-    }
-
-    putchar(0xa);
-
-    if (!strncmp(client_buf, exit, 4)) {
-      puts("Bye");
-
-      close(server_fd);
+    if (!strncasecmp(client_buf, EXIT_COMMAND, strlen(EXIT_COMMAND) - 1)) {
+      puts("[INFO] exiting program. bye bye!");
       close(client_fd);
-
-      return EXIT_SUCCESS;
+      close(server_fd);
+      exit(EXIT_SUCCESS);
     }
 
-    write(client_fd, client_buf, 1024);
+    if (send(client_fd, client_buf, BUFFER_SIZE, 0) == -1) {
+      perror("[ERROR] could not send data to client");
+      continue;
+    }
   }
 
+  close(client_fd);
+  close(server_fd);
   return EXIT_SUCCESS;
 }
