@@ -20,9 +20,16 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include <sys/epoll.h>
+
+#define MAXEVENTS 64
 
 typedef struct server {
   int fd;
+  int epoll_fd;
+  struct epoll_event events[MAXEVENTS];
+  int connected_clients[MAXEVENTS];
+  int connected_clients_index;
   bool running;
 } server_t;
 
