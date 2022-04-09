@@ -25,6 +25,7 @@
 #include <string.h>
 #include <sys/socket.h>
 #include <unistd.h>
+#include <errno.h>
 
 #define BUFFER_SIZE 1024
 #define EXIT_COMMAND "exit"
@@ -34,7 +35,7 @@ server_create(uint32_t port)
 {
   int server_fd = socket(AF_INET, SOCK_STREAM, 0);
   if (server_fd == -1) {
-    log_error("unable to create a socket");
+    log_error("unable to create a socket: %s", strerror(errno));
     exit(EXIT_FAILURE);
   }
 
@@ -47,13 +48,13 @@ server_create(uint32_t port)
   setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &opt_val, sizeof(opt_val));
 
   if (bind(server_fd, (struct sockaddr *) &server_addr, sizeof(server_addr)) == -1) {
-    log_error("could not bind");
+    log_error("could not bind: %s", strerror(errno));
     close(server_fd);
     exit(EXIT_FAILURE);
   }
 
   if (listen(server_fd, SOMAXCONN) == -1) {
-    log_error("could not listen");
+    log_error("could not listen: %s", strerror(errno));
     close(server_fd);
     exit(EXIT_FAILURE);
   }
@@ -64,7 +65,7 @@ server_create(uint32_t port)
 
   server.epoll_fd = epoll_create1(0);
   if (server.epoll_fd == -1) {
-    log_error("faild to create epoll");
+    log_error("faild to create epoll: %s", strerror(errno));
     exit(EXIT_FAILURE);
   }
 
@@ -73,7 +74,7 @@ server_create(uint32_t port)
   event.data.fd = server.fd;
 
   if (epoll_ctl(server.epoll_fd, EPOLL_CTL_ADD, server.fd, &event) == -1) {
-    log_error("could not add server to epoll");
+    log_error("could not add server to epoll: %s", strerror(errno));
     exit(EXIT_FAILURE);
   }
 
@@ -93,7 +94,7 @@ server_start(server_t *server)
   while (server->running) {
     int event_count = epoll_wait(server->epoll_fd, server->events, MAXEVENTS, 10000);
     if (event_count == -1) {
-      log_error("could not wait for epoll events");
+      log_error("could not wait for epoll events: %s", strerror(errno));
       continue;
     }
 
@@ -107,7 +108,7 @@ server_start(server_t *server)
       if (sockfd == server->fd) {
         int client_fd = accept(server->fd, (struct sockaddr *) &client, &client_len);
         if (client_fd == -1) {
-          log_error("could not accept connection");
+          log_error("could not accept connection: %s", strerror(errno));
           close(server->fd);
           exit(EXIT_FAILURE);
         }
@@ -117,7 +118,7 @@ server_start(server_t *server)
         event.data.fd = client_fd;
 
         if (epoll_ctl(server->epoll_fd, EPOLL_CTL_ADD, client_fd, &event) == -1) {
-          log_error("could not add server to epoll");
+          log_error("could not add server to epoll: %s", strerror(errno));
           exit(EXIT_FAILURE);
         }
 
@@ -136,7 +137,7 @@ server_start(server_t *server)
         memset(client_buf, 0, BUFFER_SIZE);
 
         if (recv(client_fd, client_buf, BUFFER_SIZE, 0) == -1) {
-          log_error("could not read data from client");
+          log_error("could not read data from client: %s", strerror(errno));
           continue;
         }
 
@@ -151,7 +152,7 @@ server_start(server_t *server)
           char message[BUFFER_SIZE];
           sprintf(message, "client_%d :%s", client_fd, client_buf);
           if (send(server->connected_clients[i], message, BUFFER_SIZE, 0) == -1) {
-            log_error("could not send data to client");
+            log_error("could not send data to client: %s", strerror(errno));
             continue;
           }
         }
