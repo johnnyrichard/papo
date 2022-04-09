@@ -62,6 +62,7 @@ server_create(uint32_t port)
   server_t server;
   memset(&server, 0, sizeof(server));
   server.fd = server_fd;
+  memset(server.connected_clients, -1, sizeof(int) * MAXEVENTS);
 
   server.epoll_fd = epoll_create1(0);
   if (server.epoll_fd == -1) {
@@ -122,17 +123,28 @@ server_start(server_t *server)
           exit(EXIT_FAILURE);
         }
 
-        server->connected_clients[server->connected_clients_index++] = client_fd;
+        int j = 0;
+        while (server->connected_clients[j] != -1 && j < MAXEVENTS) {
+          j++; 
+        }
+        log_trace("j = %d, MAXEVENTS = %d", j, MAXEVENTS);
+
+        if (j < MAXEVENTS) {
+          server->connected_clients[j] = client_fd;
+        } else {
+          log_warn("max number of connection has been reached");
+        }
       } else {
+        int client_fd = sockfd;
         if (server->events[i].events & EPOLLHUP) {
-          int i;
-          for (i = 0; i < server->connected_clients_index; ++i) {
-            if (server->connected_clients[server->connected_clients_index] == sockfd)
-              server->connected_clients[server->connected_clients_index] = 1;
+          for (int j = 0; j < MAXEVENTS; ++j) {
+            if (server->connected_clients[j] == client_fd) {
+              server->connected_clients[j] = -1;
+              break;
+            }
           }
           continue;
         }
-        int client_fd = sockfd;
         char client_buf[BUFFER_SIZE];
         memset(client_buf, 0, BUFFER_SIZE);
 
@@ -148,10 +160,16 @@ server_start(server_t *server)
           exit(EXIT_SUCCESS);
         }
 
-        for (int i = 0; i < server->connected_clients_index; ++i) {
+        for (int j = 0; j < MAXEVENTS; ++j) {
+          if (server->connected_clients[j] == -1) {
+            continue;
+          }
+
           char message[BUFFER_SIZE];
+          memset(message, 0, sizeof(char) * BUFFER_SIZE);
+
           sprintf(message, "client_%d :%s", client_fd, client_buf);
-          if (send(server->connected_clients[i], message, BUFFER_SIZE, 0) == -1) {
+          if (send(server->connected_clients[j], message, BUFFER_SIZE, 0) == -1) {
             log_error("could not send data to client: %s", strerror(errno));
             continue;
           }

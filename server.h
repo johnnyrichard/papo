@@ -29,7 +29,6 @@ typedef struct server {
   int epoll_fd;
   struct epoll_event events[MAXEVENTS];
   int connected_clients[MAXEVENTS];
-  int connected_clients_index;
   bool running;
 } server_t;
 
