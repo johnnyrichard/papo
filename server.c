@@ -175,9 +175,7 @@ server_handle_client_data(server_t *server, struct epoll_event *event)
 
   if (!strncasecmp(client_buf, EXIT_COMMAND, strlen(EXIT_COMMAND) - 1)) {
     log_info("exiting program. bye bye!");
-    close(client_fd);
-    close(server->fd);
-    exit(EXIT_SUCCESS);
+    server->running = false;
   }
 
   for (int j = 0; j < MAXEVENTS; ++j) {
