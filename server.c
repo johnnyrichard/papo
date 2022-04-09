@@ -29,6 +29,7 @@
 
 #define BUFFER_SIZE 1024
 #define EXIT_COMMAND "exit"
+#define EMPTY_CCLIENT_SPOT -1
 
 static void server_handle_client_data(server_t *server, struct epoll_event *event);
 static void server_handle_server_data(server_t *server, struct epoll_event *event);
@@ -65,7 +66,7 @@ server_create(uint32_t port)
   server_t server;
   memset(&server, 0, sizeof(server));
   server.fd = server_fd;
-  memset(server.connected_clients, -1, sizeof(int) * MAXEVENTS);
+  memset(server.connected_clients, EMPTY_CCLIENT_SPOT, sizeof(int) * MAXEVENTS);
 
   server.epoll_fd = epoll_create1(0);
   if (server.epoll_fd == -1) {
@@ -105,10 +106,11 @@ server_start(server_t *server)
     }
 
     for (int i = 0; i < event_count; ++i) {
-      if (server->events[i].data.fd == server->fd) {
-        server_handle_server_data(server, &server->events[i]);
+      struct epoll_event event = server->events[i];
+      if (event.data.fd == server->fd) {
+        server_handle_server_data(server, &event);
       } else {
-        server_handle_client_data(server, &server->events[i]);
+        server_handle_client_data(server, &event);
       }
     }
   }
@@ -140,7 +142,7 @@ server_handle_server_data(server_t *server, struct epoll_event *event)
   }
 
   int j = 0;
-  while (server->connected_clients[j] != -1 && j < MAXEVENTS) {
+  while (server->connected_clients[j] != EMPTY_CCLIENT_SPOT && j < MAXEVENTS) {
     j++; 
   }
 
@@ -159,7 +161,7 @@ server_handle_client_data(server_t *server, struct epoll_event *event)
   if (event->events & EPOLLHUP) {
     for (int j = 0; j < MAXEVENTS; ++j) {
       if (server->connected_clients[j] == client_fd) {
-        server->connected_clients[j] = -1;
+        server->connected_clients[j] = EMPTY_CCLIENT_SPOT;
         break;
       }
     }
@@ -179,7 +181,7 @@ server_handle_client_data(server_t *server, struct epoll_event *event)
   }
 
   for (int j = 0; j < MAXEVENTS; ++j) {
-    if (server->connected_clients[j] == -1) {
+    if (server->connected_clients[j] == EMPTY_CCLIENT_SPOT) {
       continue;
     }
 
