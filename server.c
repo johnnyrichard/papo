@@ -15,6 +15,7 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
+#include "log.h"
 #include "server.h"
 
 #include <sys/epoll.h>
@@ -33,7 +34,7 @@ server_create(uint32_t port)
 {
   int server_fd = socket(AF_INET, SOCK_STREAM, 0);
   if (server_fd == -1) {
-    perror("[ERROR] unable to create a socket");
+    log_error("unable to create a socket");
     exit(EXIT_FAILURE);
   }
 
@@ -46,13 +47,13 @@ server_create(uint32_t port)
   setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &opt_val, sizeof(opt_val));
 
   if (bind(server_fd, (struct sockaddr *) &server_addr, sizeof(server_addr)) == -1) {
-    perror("[ERROR] could not bind");
+    log_error("could not bind");
     close(server_fd);
     exit(EXIT_FAILURE);
   }
 
   if (listen(server_fd, SOMAXCONN) == -1) {
-    perror("[ERROR] could not listen");
+    log_error("could not listen");
     close(server_fd);
     exit(EXIT_FAILURE);
   }
@@ -63,7 +64,7 @@ server_create(uint32_t port)
 
   server.epoll_fd = epoll_create1(0);
   if (server.epoll_fd == -1) {
-    perror("[ERROR] faild to create epoll");
+    log_error("faild to create epoll");
     exit(EXIT_FAILURE);
   }
 
@@ -72,11 +73,11 @@ server_create(uint32_t port)
   event.data.fd = server.fd;
 
   if (epoll_ctl(server.epoll_fd, EPOLL_CTL_ADD, server.fd, &event) == -1) {
-    perror("[ERROR] could not add server to epoll");
+    log_error("could not add server to epoll");
     exit(EXIT_FAILURE);
   }
 
-  printf("[INFO] server listening at port (%d)\n", port);
+  log_info("server listening at port (%d)", port);
 
   return server;
 }
@@ -92,12 +93,12 @@ server_start(server_t *server)
   while (server->running) {
     int event_count = epoll_wait(server->epoll_fd, server->events, MAXEVENTS, 10000);
     if (event_count == -1) {
-      perror("[ERROR] could not wait for epoll events");
+      log_error("could not wait for epoll events");
       continue;
     }
 
     if (event_count == 0) {
-      puts("[TRACE] epoll_wait timeout");
+      log_trace("epoll_wait timeout");
       continue;
     }
 
@@ -106,7 +107,7 @@ server_start(server_t *server)
       if (sockfd == server->fd) {
         int client_fd = accept(server->fd, (struct sockaddr *) &client, &client_len);
         if (client_fd == -1) {
-          perror("[ERROR] could not accept connection");
+          log_error("could not accept connection");
           close(server->fd);
           exit(EXIT_FAILURE);
         }
@@ -116,23 +117,31 @@ server_start(server_t *server)
         event.data.fd = client_fd;
 
         if (epoll_ctl(server->epoll_fd, EPOLL_CTL_ADD, client_fd, &event) == -1) {
-          perror("[ERROR] could not add server to epoll");
+          log_error("could not add server to epoll");
           exit(EXIT_FAILURE);
         }
 
         server->connected_clients[server->connected_clients_index++] = client_fd;
       } else {
+        if (server->events[i].events & EPOLLHUP) {
+          int i;
+          for (i = 0; i < server->connected_clients_index; ++i) {
+            if (server->connected_clients[server->connected_clients_index] == sockfd)
+              server->connected_clients[server->connected_clients_index] = 1;
+          }
+          continue;
+        }
         int client_fd = sockfd;
         char client_buf[BUFFER_SIZE];
         memset(client_buf, 0, BUFFER_SIZE);
 
         if (recv(client_fd, client_buf, BUFFER_SIZE, 0) == -1) {
-          perror("[ERROR] could not read data from client");
+          log_error("could not read data from client");
           continue;
         }
 
         if (!strncasecmp(client_buf, EXIT_COMMAND, strlen(EXIT_COMMAND) - 1)) {
-          puts("[INFO] exiting program. bye bye!");
+          log_info("exiting program. bye bye!");
           close(client_fd);
           close(server->fd);
           exit(EXIT_SUCCESS);
@@ -142,7 +151,7 @@ server_start(server_t *server)
           char message[BUFFER_SIZE];
           sprintf(message, "client_%d :%s", client_fd, client_buf);
           if (send(server->connected_clients[i], message, BUFFER_SIZE, 0) == -1) {
-            perror("[ERROR] could not send data to client");
+            log_error("could not send data to client");
             continue;
           }
         }
