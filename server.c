@@ -82,7 +82,7 @@ server_create(uint32_t port)
 }
 
 void
-server_listen(server_t *server)
+server_start(server_t *server)
 {
   struct sockaddr_in client;
   socklen_t client_len = sizeof(client);

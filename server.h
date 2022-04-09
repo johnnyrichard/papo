@@ -34,6 +34,6 @@ typedef struct server {
 } server_t;
 
 server_t server_create(uint32_t port);
-void     server_listen(server_t *server);
+void     server_start(server_t *server);
 
 #endif /* SERVER_H */
