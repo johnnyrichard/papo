@@ -16,12 +16,15 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 #include <stdlib.h>
+#include <signal.h>
 
 #include "server.h"
 
 #define SERVER_PORT 6667
 
 int main() {
+  sigaction(SIGPIPE, &(struct sigaction){SIG_IGN}, NULL);
+
   server_t server = server_create(SERVER_PORT);
   server_listen(&server);
 
