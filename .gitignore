@@ -1,3 +1,6 @@
 papo
 tags
 *.o
+*.so
+.exrc
+__pycache__

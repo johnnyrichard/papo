@@ -43,7 +43,7 @@ server_init(server_t *server, uint32_t port)
 
   int server_fd = socket(AF_INET, SOCK_STREAM, 0);
   if (server_fd == -1) {
-    log_error("unable to create a socket: %s", strerror(errno));
+    log_fatal("unable to create a socket: %s", strerror(errno));
     exit(EXIT_FAILURE);
   }
   server->fd = server_fd;
@@ -57,13 +57,13 @@ server_init(server_t *server, uint32_t port)
   setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &opt_val, sizeof(opt_val));
 
   if (bind(server_fd, (struct sockaddr *) &server_addr, sizeof(server_addr)) == -1) {
-    log_error("could not bind: %s", strerror(errno));
+    log_fatal("could not bind: %s", strerror(errno));
     close(server_fd);
     exit(EXIT_FAILURE);
   }
 
   if (listen(server_fd, SOMAXCONN) == -1) {
-    log_error("could not listen: %s", strerror(errno));
+    log_fatal("could not listen: %s", strerror(errno));
     close(server_fd);
     exit(EXIT_FAILURE);
   }
@@ -72,7 +72,7 @@ server_init(server_t *server, uint32_t port)
 
   server->epoll_fd = epoll_create1(0);
   if (server->epoll_fd == -1) {
-    log_error("faild to create epoll: %s", strerror(errno));
+    log_fatal("faild to create epoll: %s", strerror(errno));
     exit(EXIT_FAILURE);
   }
 
@@ -81,11 +81,11 @@ server_init(server_t *server, uint32_t port)
   event.data.fd = server->fd;
 
   if (epoll_ctl(server->epoll_fd, EPOLL_CTL_ADD, server->fd, &event) == -1) {
-    log_error("could not add server to epoll: %s", strerror(errno));
+    log_fatal("could not add server to epoll: %s", strerror(errno));
     exit(EXIT_FAILURE);
   }
 
-  log_info("server listening at port (%d)", port);
+  log_debug("server listening on port (%d)", port);
 }
 
 void
@@ -176,7 +176,7 @@ server_handle_client_data(server_t *server, struct epoll_event *event)
   }
 
   if (!strncasecmp(client_buf, EXIT_COMMAND, strlen(EXIT_COMMAND) - 1)) {
-    log_info("exiting program. bye bye!");
+    log_debug("exiting program. bye bye!");
     server->running = false;
   }
 
