@@ -32,7 +32,7 @@ typedef struct server {
   bool running;
 } server_t;
 
-server_t server_create(uint32_t port);
-void     server_start(server_t *server);
+void server_init(server_t *server, uint32_t port);
+void server_run(server_t *server);
 
 #endif /* SERVER_H */

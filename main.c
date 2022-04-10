@@ -25,8 +25,9 @@
 int main() {
   sigaction(SIGPIPE, &(struct sigaction){SIG_IGN}, NULL);
 
-  server_t server = server_create(SERVER_PORT);
-  server_start(&server);
+  server_t server;
+  server_init(&server, SERVER_PORT);
+  server_run(&server);
 
   return EXIT_SUCCESS;
 }

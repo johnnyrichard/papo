@@ -18,6 +18,7 @@
 #include "log.h"
 #include "server.h"
 
+#include <assert.h>
 #include <sys/epoll.h>
 #include <netinet/in.h>
 #include <stdio.h>
@@ -34,14 +35,18 @@
 static void server_handle_client_data(server_t *server, struct epoll_event *event);
 static void server_handle_server_data(server_t *server, struct epoll_event *event);
 
-server_t
-server_create(uint32_t port)
+void
+server_init(server_t *server, uint32_t port)
 {
+  assert(server != NULL);
+  memset(server, 0, sizeof(server));
+
   int server_fd = socket(AF_INET, SOCK_STREAM, 0);
   if (server_fd == -1) {
     log_error("unable to create a socket: %s", strerror(errno));
     exit(EXIT_FAILURE);
   }
+  server->fd = server_fd;
 
   struct sockaddr_in server_addr;
   server_addr.sin_addr.s_addr = htonl(INADDR_ANY);
@@ -63,33 +68,28 @@ server_create(uint32_t port)
     exit(EXIT_FAILURE);
   }
 
-  server_t server;
-  memset(&server, 0, sizeof(server));
-  server.fd = server_fd;
-  memset(server.connected_clients, EMPTY_CCLIENT_SPOT, sizeof(int) * MAXEVENTS);
+  memset(server->connected_clients, EMPTY_CCLIENT_SPOT, sizeof(int) * MAXEVENTS);
 
-  server.epoll_fd = epoll_create1(0);
-  if (server.epoll_fd == -1) {
+  server->epoll_fd = epoll_create1(0);
+  if (server->epoll_fd == -1) {
     log_error("faild to create epoll: %s", strerror(errno));
     exit(EXIT_FAILURE);
   }
 
   struct epoll_event event;
   event.events = EPOLLIN;
-  event.data.fd = server.fd;
+  event.data.fd = server->fd;
 
-  if (epoll_ctl(server.epoll_fd, EPOLL_CTL_ADD, server.fd, &event) == -1) {
+  if (epoll_ctl(server->epoll_fd, EPOLL_CTL_ADD, server->fd, &event) == -1) {
     log_error("could not add server to epoll: %s", strerror(errno));
     exit(EXIT_FAILURE);
   }
 
   log_info("server listening at port (%d)", port);
-
-  return server;
 }
 
 void
-server_start(server_t *server)
+server_run(server_t *server)
 {
   server->running = true;
 
