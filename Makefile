@@ -7,7 +7,7 @@ all: main.c server.c log.c
 
 .PHONY: test
 test: libpapo.so
-	@python test.py
+	@python test.py -v --locals
 
 libpapo.so: server.o log.o
 	$(CC) $(CFLAGS) -shared -o libpapo.so server.o log.o

@@ -28,12 +28,20 @@
 #include <unistd.h>
 #include <errno.h>
 
-#define BUFFER_SIZE 1024
+#define BUFFER_SIZE 4096
 #define EXIT_COMMAND "exit"
 #define EMPTY_CCLIENT_SPOT -1
 
+typedef struct client {
+  int fd;
+  char buf[BUFFER_SIZE];
+  char msg_buf[BUFFER_SIZE];
+  int msg_buf_i;
+} client_t;
+
 static void server_handle_client_data(server_t *server, struct epoll_event *event);
 static void server_handle_server_data(server_t *server, struct epoll_event *event);
+static void server_on_client_msg(server_t *server, client_t *client);
 
 void
 server_init(server_t *server, uint32_t port)
@@ -122,10 +130,10 @@ server_run(server_t *server)
 static void
 server_handle_server_data(server_t *server, struct epoll_event *event)
 {       
-  struct sockaddr_in client;
-  socklen_t client_len = sizeof(client);
+  struct sockaddr_in clientaddr;
+  socklen_t client_len = sizeof(clientaddr);
 
-  int client_fd = accept(server->fd, (struct sockaddr *) &client, &client_len);
+  int client_fd = accept(server->fd, (struct sockaddr *) &clientaddr, &client_len);
   if (client_fd == -1) {
     log_error("could not accept connection: %s", strerror(errno));
     close(server->fd);
@@ -134,7 +142,16 @@ server_handle_server_data(server_t *server, struct epoll_event *event)
 
   struct epoll_event client_event;
   client_event.events = EPOLLIN;
-  client_event.data.fd = client_fd;
+
+  client_t* client = (client_t *) malloc(sizeof(client_t));
+  if (client == NULL) {
+    log_error("could not create client_t", strerror(errno)); 
+    close(client_fd);
+    return;
+  }
+
+  client->fd = client_fd;
+  client_event.data.ptr = (void *) client;
 
   if (epoll_ctl(server->epoll_fd, EPOLL_CTL_ADD, client_fd, &client_event) == -1) {
     log_error("could not add server to epoll: %s", strerror(errno));
@@ -157,7 +174,8 @@ server_handle_server_data(server_t *server, struct epoll_event *event)
 static void
 server_handle_client_data(server_t *server, struct epoll_event *event)
 { 
-  int client_fd = event->data.fd;
+  client_t* client = event->data.ptr;
+  int client_fd = client->fd;
   if (event->events & EPOLLHUP) {
     for (int j = 0; j < MAXEVENTS; ++j) {
       if (server->connected_clients[j] == client_fd) {
@@ -167,31 +185,55 @@ server_handle_client_data(server_t *server, struct epoll_event *event)
     }
     return;
   }
-  char client_buf[BUFFER_SIZE];
-  memset(client_buf, 0, BUFFER_SIZE);
+  memset(client->buf, 0, BUFFER_SIZE);
 
-  if (recv(client_fd, client_buf, BUFFER_SIZE, 0) == -1) {
+  int readn = recv(client_fd, client->buf, BUFFER_SIZE, 0);
+  if (readn == -1) {
     log_error("could not read data from client: %s", strerror(errno));
     return;
   }
 
-  if (!strncasecmp(client_buf, EXIT_COMMAND, strlen(EXIT_COMMAND) - 1)) {
+
+  size_t buf_i = 0;
+  while (buf_i < readn) {
+    for (; client->buf[buf_i] != '\n' && buf_i < readn; ++client->msg_buf_i, ++buf_i) {
+      client->msg_buf[client->msg_buf_i] = client->buf[buf_i];
+    }
+    if (buf_i < readn) {
+      client->msg_buf[client->msg_buf_i] = '\0';
+      client->msg_buf_i = 0;
+
+      log_debug("Message received from client (%d): %s", client->fd, client->msg_buf);
+
+      server_on_client_msg(server, client);
+
+      buf_i++;
+    }
+  }
+
+  if (!strncasecmp(client->buf, EXIT_COMMAND, strlen(EXIT_COMMAND) - 1)) {
     log_debug("exiting program. bye bye!");
     server->running = false;
   }
+}
 
-  for (int j = 0; j < MAXEVENTS; ++j) {
-    if (server->connected_clients[j] == EMPTY_CCLIENT_SPOT) {
-      continue;
-    }
+static void
+server_on_client_msg(server_t *server, client_t *client)
+{
+  char* msg = strdup(client->msg_buf);
+  char* token = strtok(msg, " ");
 
-    char message[BUFFER_SIZE];
-    memset(message, 0, sizeof(char) * BUFFER_SIZE);
+  if (!strcmp(token, "USER")) {
+    token = strtok(NULL, " ");
 
-    sprintf(message, "client_%d :%s", client_fd, client_buf);
-    if (send(server->connected_clients[j], message, BUFFER_SIZE, 0) == -1) {
+    log_debug("Sending message: 001 %s :Welcome!", token);
+    char reply[128];
+    sprintf(reply, "001 %s :Welcome!\r\n", token);
+    if (send(client->fd, reply, strlen(reply) + 1, 0) == -1) {
       log_error("could not send data to client: %s", strerror(errno));
-      continue;
+      goto exit;
     }
   }
+exit:
+  free(msg);
 }

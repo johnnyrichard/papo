@@ -4,9 +4,13 @@ import threading
 import time
 import unittest
 
+
 libpapo = ctypes.CDLL('./libpapo.so')
+unittest.util._MAX_LENGTH=2000
+
 
 class PapoServerTest(unittest.TestCase):
+
 
     @classmethod
     def setUpClass(cls):
@@ -15,29 +19,34 @@ class PapoServerTest(unittest.TestCase):
         thread.start()
         time.sleep(2)
 
+
     @classmethod
     def tearDownClass(cls):
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             s.connect(('localhost', 6667))
             s.sendall(b'exit')
 
+
     @classmethod
     def run_papo_server(cls, server):
         libpapo.server_init(ctypes.byref(server), 6667)
         libpapo.server_run(ctypes.byref(server))
 
+
     def test_server_run(self):
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             s.connect(('localhost', 6667))
-            s.sendall(b'A msg from client')
+            s.sendall(b'USER username 0 * :User Name\r\n')
             data = s.recv(1024)
-            self.assertIn(b':A msg from client', data)
+            self.assertIn(b'001 username :Welcome!\r\n', data)
+
 
 class epoll_data(ctypes.Union):
     _fields_ = [('ptr', ctypes.c_void_p),
                 ('fd', ctypes.c_int),
                 ('u32', ctypes.c_uint),
                 ('u64', ctypes.c_ulong)]
+
 
 class epoll_event(ctypes.Structure):
     _fields_ = [('events', ctypes.c_uint),
