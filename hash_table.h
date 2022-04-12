@@ -15,24 +15,22 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-#ifndef SERVER_H
-#define SERVER_H
+#ifndef HASH_TABLE_H
+#define HASH_TABLE
 
-#include <stdint.h>
-#include <stdbool.h>
-#include <sys/epoll.h>
+#include <stdio.h>
 
-#define MAXEVENTS 64
+typedef struct hash_entry {
+  const char* key;
+  void* value;
+} hash_entry_t;
 
-typedef struct server {
-  int fd;
-  int epoll_fd;
-  struct epoll_event events[MAXEVENTS];
-  int connected_clients[MAXEVENTS];
-  bool running;
-} server_t;
+typedef struct hash_table {
+  hash_entry_t* entries;
+  size_t capacity;
+  size_t length;
+} hash_table_t;
 
-void server_init(server_t *server, uint32_t port);
-void server_run(server_t *server);
+hash_table_t* hash_table_new();
 
-#endif /* SERVER_H */
+#endif /* HASH_TABLE_H */

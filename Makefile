@@ -1,20 +1,25 @@
-CFLAGS=-DLOG_USE_COLOR
 CC=gcc
 
 .PHONY: all
-all: main.c server.c log.c
-	$(CC) $(CFLAGS) -g -o papo main.c server.c log.c
+all: main.c server.o log.o hash_table.o
+	$(CC) -g -o papo main.c server.o log.o hash_table.o
 
 .PHONY: test
-test: libpapo.so
-	@python test.py -v --locals
+test: all
+	@make -C test
+
+.PHONY: ftest
+ftest: libpapo.so
+	@python ftest.py -v --locals
 
 libpapo.so: server.o log.o
-	$(CC) $(CFLAGS) -shared -o libpapo.so server.o log.o
+	$(CC) -shared -o libpapo.so server.o log.o
 
 log.o: log.c
-	$(CC) $(CFLAGS) -fPIC -c log.c
+	$(CC) -DLOG_USE_COLOR -fPIC -c log.c
 
 .PHONY: clean
 clean:
-	rm *.o *.so
+	@$(RM) *.o 
+	@$(RM) *.so
+	@$(RM) papo

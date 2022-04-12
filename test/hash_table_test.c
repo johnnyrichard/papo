@@ -15,24 +15,35 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-#ifndef SERVER_H
-#define SERVER_H
+#define MUNIT_ENABLE_ASSERT_ALIASES
+#include "munit/munit.c"
+#include "../hash_table.h"
 
-#include <stdint.h>
-#include <stdbool.h>
-#include <sys/epoll.h>
+#include <stdlib.h>
 
-#define MAXEVENTS 64
+static MunitResult 
+test_create_new(const  MunitParameter params[], 
+                void  *user_data_or_fixture)
+{
+  hash_table_t* table = hash_table_new();
 
-typedef struct server {
-  int fd;
-  int epoll_fd;
-  struct epoll_event events[MAXEVENTS];
-  int connected_clients[MAXEVENTS];
-  bool running;
-} server_t;
+  assert_not_null(table);
 
-void server_init(server_t *server, uint32_t port);
-void server_run(server_t *server);
+  return MUNIT_OK;
+}
 
-#endif /* SERVER_H */
+static MunitTest tests[] = {
+  { "/test_create_new", test_create_new, NULL, NULL, MUNIT_TEST_OPTION_NONE, NULL },
+  { NULL, NULL, NULL, NULL, MUNIT_TEST_OPTION_NONE, NULL }
+};
+
+static const MunitSuite suite = {
+  "/hash_table", tests, NULL, 1, MUNIT_SUITE_OPTION_NONE 
+};
+
+int
+main(int argc, char *argv[])
+{
+  return munit_suite_main(&suite, NULL, argc, argv);
+  return EXIT_SUCCESS;
+}
