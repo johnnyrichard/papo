@@ -16,21 +16,45 @@
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 #ifndef HASH_TABLE_H
-#define HASH_TABLE
+#define HASH_TABLE_H
 
 #include <stdio.h>
+#include <stdbool.h>
 
-typedef struct hash_entry {
-  const char* key;
-  void* value;
-} hash_entry_t;
+typedef struct hash_table hash_table_t;
+typedef struct hash_table_entry hash_table_entry_t;
+typedef struct hash_table_iterator hash_table_iterator_t;
 
-typedef struct hash_table {
-  hash_entry_t* entries;
+struct hash_table {
+  hash_table_entry_t* entries;
   size_t capacity;
   size_t length;
-} hash_table_t;
+};
 
-hash_table_t* hash_table_new();
+struct hash_table_entry {
+  const char* key;
+  void* value;
+};
+
+struct hash_table_iterator {
+  const char* key;
+  void* value;
+  hash_table_t *_table;
+  size_t _index;
+};
+
+hash_table_t* hash_table_new     ();
+void          hash_table_destroy (hash_table_t *ht);
+void          hash_table_insert  (hash_table_t *ht,
+                                  const char   *key,
+                                  void         *value);
+bool          hash_table_remove  (hash_table_t *ht,
+                                  const char   *key);
+void*         hash_table_get     (hash_table_t *ht,
+                                  const char   *key);
+size_t        hash_table_length  (hash_table_t *ht);
+
+hash_table_iterator_t hash_table_get_iterator(hash_table_t *ht);
+bool hash_table_iterator_next(hash_table_iterator_t *it);
 
 #endif /* HASH_TABLE_H */
