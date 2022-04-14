@@ -179,6 +179,9 @@ server_handle_client_data(server_t *server, struct epoll_event *event)
   client_t* client = event->data.ptr;
   int client_fd = client->fd;
   if (event->events & EPOLLHUP) {
+    if (epoll_ctl(server->epoll_fd, EPOLL_CTL_DEL, client_fd, NULL) == -1) {
+      log_error("could not del fd : %s", strerror(errno));
+    }
     hash_table_remove(server->client_table, client->nick);
     free(client);
     return;
