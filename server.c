@@ -226,7 +226,10 @@ server_on_client_msg(server_t *server, client_t *client)
   char* msg = strdup(client->msg_buf);
   char* token = strtok(msg, " ");
 
-  if (strcmp(token, "USER") == 0) {
+  if (token == NULL) {
+    goto exit;
+
+  } else if (strcmp(token, "USER") == 0) {
     token = strtok(NULL, " ");
 
     sprintf(reply, "001 %s :Welcome!\n", client->nick);
