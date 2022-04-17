@@ -17,6 +17,7 @@
  */
 #include "log.h"
 #include "server.h"
+#include "string_view.h"
 
 #include <assert.h>
 #include <sys/epoll.h>
@@ -30,7 +31,6 @@
 
 #define BUFFER_SIZE 4096
 #define EXIT_COMMAND "exit"
-#define EMPTY_CCLIENT_SPOT -1
 
 typedef struct client {
   int fd;
@@ -221,50 +221,56 @@ server_handle_client_data(server_t *server, struct epoll_event *event)
 static void
 server_on_client_msg(server_t *server, client_t *client)
 {
-  char reply[128];
-  memset(reply, 0, 128);
-  char* msg = strdup(client->msg_buf);
-  char* token = strtok(msg, " ");
+  char msg_reply[BUFFER_SIZE];
+  memset(msg_reply, 0, BUFFER_SIZE);
 
-  if (token == NULL) {
-    goto exit;
+  string_view_t sv_msg = string_view_from_cstr(client->msg_buf);
+  string_view_t msg_type = string_view_chop_by_delim(&sv_msg, ' ');
 
-  } else if (strcmp(token, "USER") == 0) {
-    token = strtok(NULL, " ");
+  if (msg_type.size == 0) {
+    return;
+  } 
 
-    sprintf(reply, "001 %s :Welcome!\n", client->nick);
-    if (send(client->fd, reply, strlen(reply), 0) == -1) {
+  if (string_view_eq(msg_type, string_view_from_cstr("USER"))) {
+
+    sprintf(msg_reply, "001 %s :Welcome!\n", client->nick);
+    if (send(client->fd, msg_reply, strlen(msg_reply), 0) == -1) {
       log_error("could not send data to client: %s", strerror(errno));
-      goto exit;
     }
+    return;
+  } 
 
-  } else if (strcmp(token, "PING") == 0) {
-    token = strtok(NULL, " ");
-    sprintf(reply, "PONG %s\n", token);
-    if (send(client->fd, reply, strlen(reply), 0) == -1) {
+  if (string_view_eq(msg_type, string_view_from_cstr("PING"))) {
+
+    sprintf(msg_reply, "PONG %.*s\n", sv_msg.size, sv_msg.data);
+    if (send(client->fd, msg_reply, strlen(msg_reply), 0) == -1) {
       log_error("could not send data to client: %s", strerror(errno));
-      goto exit;
     }
+    return;
+  }
 
-  } else if (strcmp(token, "PRIVMSG") == 0) {
-    token = strtok(NULL, " ");
+  if (string_view_eq(msg_type, string_view_from_cstr("PRIVMSG"))) {
 
-    client_t *client_recv = hash_table_get(server->client_table, token);
+    string_view_t sv_nick = string_view_chop_by_delim(&sv_msg, ' ');
+    char nick[sv_nick.size + 1];
+    string_view_to_cstr(&sv_nick, nick);
+
+    client_t *client_recv = hash_table_get(server->client_table, nick);
 
     if (client_recv == NULL) {
-      sprintf(reply, "could not send message to nick: %s. nick not found\n", token);
-      if (send(client->fd, reply, strlen(reply), 0) == -1) {
+      sprintf(msg_reply, "could not send message to nick: %s. nick not found\n", nick);
+      if (send(client->fd, msg_reply, strlen(msg_reply), 0) == -1) {
         log_error("could not send data to client: %s", strerror(errno));
-        goto exit;
+        return;
       }
     }
-    token = strtok(NULL, ":");
-    sprintf(reply, ":%s PRIVMSG %s :%s\n", client->nick, client_recv->nick, token);
-    if (send(client_recv->fd, reply, strlen(reply), 0) == -1) {
+
+    string_view_chop_by_delim(&sv_msg, ':');
+
+    sprintf(msg_reply, ":%s PRIVMSG %s :%.*s\n", client->nick, client_recv->nick, sv_msg.size, sv_msg.data);
+    if (send(client_recv->fd, msg_reply, strlen(msg_reply), 0) == -1) {
       log_error("could not send data to client: %s", strerror(errno));
-      goto exit;
     }
+    return;
   }
-exit:
-  free(msg);
 }
