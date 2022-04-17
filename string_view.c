@@ -19,6 +19,7 @@
 
 #include <assert.h>
 #include <stdbool.h>
+#include <stdio.h>
 #include <string.h>
 
 string_view_t
@@ -36,6 +37,12 @@ string_view_t
 string_view_from_cstr(const char *cstr)
 {
   return string_view_new(cstr, strlen(cstr));
+}
+
+bool
+string_view_to_cstr(string_view_t *sv, char *ret)
+{
+  return sprintf(ret, "%.*s", sv->size, sv->data) < 0;
 }
 
 bool

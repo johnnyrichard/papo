@@ -32,21 +32,10 @@ string_view_t string_view_new(const char *cstr, size_t size);
 
 string_view_t string_view_from_cstr(const char *cstr);
 
+bool string_view_to_cstr(string_view_t *sv, char *ret);
+
 bool string_view_eq(string_view_t a, string_view_t b);
 
 string_view_t string_view_chop_by_delim(string_view_t *sv, char delim);
-
-/*
-bool string_view_index_of(string_view_t sv, char c, size_t *index);
-
-
-bool string_view_eqi(string_view_t a, string_view_t b);
-
-bool string_view_starts_with(string_view_t sv, string_view_t prefix);
-
-bool string_view_ends_with(string_view_t sv, string_view_t suffix);
-
-uint64_t string_view_to_u64(string_view_t sv);
-*/
 
 #endif /* STRING_VIEW_H */

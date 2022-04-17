@@ -49,6 +49,22 @@ test_from_cstr(const  MunitParameter params[],
 }
 
 static MunitResult
+test_to_cstr(const  MunitParameter params[],
+             void  *user_data_or_fixture)
+{
+  char *cstr = "hello world";
+
+  string_view_t sv = string_view_new(cstr, 5);
+
+  char actual[sv.size + 1];
+  string_view_to_cstr(&sv, actual);
+
+  assert_string_equal(actual, "hello");
+
+  return MUNIT_OK;
+}
+
+static MunitResult
 test_eq(const  MunitParameter params[],
         void  *user_data_or_fixture)
 {
@@ -101,6 +117,7 @@ test_chop_by_delim_when_has_no_delim(const  MunitParameter params[],
 static MunitTest tests[] = {
   { "/test_create_new", test_create_new, NULL, NULL, MUNIT_TEST_OPTION_NONE, NULL },
   { "/test_from_cstr", test_from_cstr, NULL, NULL, MUNIT_TEST_OPTION_NONE, NULL },
+  { "/test_to_cstr", test_to_cstr, NULL, NULL, MUNIT_TEST_OPTION_NONE, NULL },
   { "/test_eq", test_eq, NULL, NULL, MUNIT_TEST_OPTION_NONE, NULL },
   { "/test_chop_by_delim_when_has_delim", test_chop_by_delim_when_has_delim, NULL, NULL, MUNIT_TEST_OPTION_NONE, NULL },
   { "/test_chop_by_delim_when_has_no_delim", test_chop_by_delim_when_has_no_delim, NULL, NULL, MUNIT_TEST_OPTION_NONE, NULL },
