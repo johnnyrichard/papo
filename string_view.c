@@ -18,6 +18,7 @@
 #include "string_view.h"
 
 #include <assert.h>
+#include <stdbool.h>
 #include <string.h>
 
 string_view_t
@@ -37,6 +38,11 @@ string_view_from_cstr(const char *cstr)
   return string_view_new(cstr, strlen(cstr));
 }
 
+bool
+string_view_eq(string_view_t a, string_view_t b)
+{
+  return a.size == b.size && memcmp(a.data, b.data, a.size) == 0;
+}
 
 string_view_t
 string_view_chop_by_delim(string_view_t *sv, char delim)
