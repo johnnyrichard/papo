@@ -15,6 +15,7 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
+#include "client.h"
 #include "log.h"
 #include "server.h"
 #include "string_view.h"
@@ -29,20 +30,14 @@
 #include <unistd.h>
 #include <errno.h>
 
-#define BUFFER_SIZE 4096
 #define EXIT_COMMAND "exit"
-
-typedef struct client {
-  int fd;
-  char nick[128];
-  char buf[BUFFER_SIZE];
-  char msg_buf[BUFFER_SIZE];
-  int msg_buf_i;
-} client_t;
 
 static void server_handle_client_data(server_t *server, struct epoll_event *event);
 static void server_handle_server_data(server_t *server, struct epoll_event *event);
-static void server_on_client_msg(server_t *server, client_t *client);
+static void server_client_msg_dipatcher(server_t *server, client_t *client);
+static void server_on_user_msg(server_t *server, client_t *client, string_view_t msg);
+static void server_on_ping_msg(server_t *server, client_t *client, string_view_t msg);
+static void server_on_privmsg_msg(server_t *server, client_t *client, string_view_t msg);
 
 void
 server_init(server_t *server, uint32_t port)
@@ -206,7 +201,7 @@ server_handle_client_data(server_t *server, struct epoll_event *event)
 
       log_debug("Message received from client (%d): %s", client->fd, client->msg_buf);
 
-      server_on_client_msg(server, client);
+      server_client_msg_dipatcher(server, client);
 
       buf_i++;
     }
@@ -219,58 +214,79 @@ server_handle_client_data(server_t *server, struct epoll_event *event)
 }
 
 static void
-server_on_client_msg(server_t *server, client_t *client)
+server_client_msg_dipatcher(server_t *server, client_t *client)
 {
-  char msg_reply[BUFFER_SIZE];
-  memset(msg_reply, 0, BUFFER_SIZE);
-
-  string_view_t sv_msg = string_view_from_cstr(client->msg_buf);
-  string_view_t msg_type = string_view_chop_by_delim(&sv_msg, ' ');
+  string_view_t msg = string_view_from_cstr(client->msg_buf);
+  string_view_t msg_type = string_view_chop_by_delim(&msg, ' ');
 
   if (msg_type.size == 0) {
     return;
   } 
-
   if (string_view_eq(msg_type, string_view_from_cstr("USER"))) {
-
-    sprintf(msg_reply, "001 %s :Welcome!\n", client->nick);
-    if (send(client->fd, msg_reply, strlen(msg_reply), 0) == -1) {
-      log_error("could not send data to client: %s", strerror(errno));
-    }
-    return;
+    return server_on_user_msg(server, client, msg);
   } 
-
   if (string_view_eq(msg_type, string_view_from_cstr("PING"))) {
+    return server_on_ping_msg(server, client, msg);
+  }
+  if (string_view_eq(msg_type, string_view_from_cstr("PRIVMSG"))) {
+    return server_on_privmsg_msg(server, client, msg);
+  }
+}
 
-    sprintf(msg_reply, "PONG %.*s\n", sv_msg.size, sv_msg.data);
-    if (send(client->fd, msg_reply, strlen(msg_reply), 0) == -1) {
+static void
+server_on_user_msg(server_t     *server,
+                   client_t     *client,
+                   string_view_t msg)
+{
+  char rbuf[BUFFER_SIZE];
+  memset(rbuf, 0, BUFFER_SIZE);
+
+  sprintf(rbuf, "001 %s :Welcome!\n", client->nick);
+  if (send(client->fd, rbuf, strlen(rbuf), 0) == -1) {
+    log_error("could not send data to client: %s", strerror(errno));
+  }
+}
+
+static void
+server_on_ping_msg(server_t     *server, 
+                   client_t     *client, 
+                   string_view_t msg)
+{
+  char rbuf[BUFFER_SIZE];
+  memset(rbuf, 0, BUFFER_SIZE);
+
+  sprintf(rbuf, "PONG %.*s\n", msg.size, msg.data);
+  if (send(client->fd, rbuf, strlen(rbuf), 0) == -1) {
+    log_error("could not send data to client: %s", strerror(errno));
+  }
+}
+
+static void
+server_on_privmsg_msg(server_t     *server,
+                      client_t     *client,
+                      string_view_t msg)
+{
+  string_view_t sv_nick = string_view_chop_by_delim(&msg, ' ');
+
+  char nick[sv_nick.size + 1];
+  string_view_to_cstr(&sv_nick, nick);
+  client_t *client_recv = hash_table_get(server->client_table, nick);
+
+  char rbuf[BUFFER_SIZE];
+  memset(rbuf, 0, BUFFER_SIZE);
+
+  if (client_recv == NULL) {
+    sprintf(rbuf, "could not send message to nick: %s. nick not found\n", nick);
+    if (send(client->fd, rbuf, strlen(rbuf), 0) == -1) {
       log_error("could not send data to client: %s", strerror(errno));
+      return;
     }
-    return;
   }
 
-  if (string_view_eq(msg_type, string_view_from_cstr("PRIVMSG"))) {
+  string_view_chop_by_delim(&msg, ':');
 
-    string_view_t sv_nick = string_view_chop_by_delim(&sv_msg, ' ');
-    char nick[sv_nick.size + 1];
-    string_view_to_cstr(&sv_nick, nick);
-
-    client_t *client_recv = hash_table_get(server->client_table, nick);
-
-    if (client_recv == NULL) {
-      sprintf(msg_reply, "could not send message to nick: %s. nick not found\n", nick);
-      if (send(client->fd, msg_reply, strlen(msg_reply), 0) == -1) {
-        log_error("could not send data to client: %s", strerror(errno));
-        return;
-      }
-    }
-
-    string_view_chop_by_delim(&sv_msg, ':');
-
-    sprintf(msg_reply, ":%s PRIVMSG %s :%.*s\n", client->nick, client_recv->nick, sv_msg.size, sv_msg.data);
-    if (send(client_recv->fd, msg_reply, strlen(msg_reply), 0) == -1) {
-      log_error("could not send data to client: %s", strerror(errno));
-    }
-    return;
+  sprintf(rbuf, ":%s PRIVMSG %s :%.*s\n", client->nick, client_recv->nick, msg.size, msg.data);
+  if (send(client_recv->fd, rbuf, strlen(rbuf), 0) == -1) {
+    log_error("could not send data to client: %s", strerror(errno));
   }
 }
