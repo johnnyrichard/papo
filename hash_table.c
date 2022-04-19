@@ -114,7 +114,7 @@ hash_table_remove(hash_table_t *ht,
 
   while (ht->entries[index].key != NULL) {
     if (strcmp(key, ht->entries[index].key) == 0) {
-      free(ht->entries[index].key);
+      free((void*) ht->entries[index].key);
       ht->entries[index] = (hash_table_entry_t) { NULL, NULL };
       ht->length--;
       return true;
