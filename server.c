@@ -276,11 +276,11 @@ server_on_privmsg_msg(server_t     *server,
   memset(rbuf, 0, BUFFER_SIZE);
 
   if (client_recv == NULL) {
-    sprintf(rbuf, "could not send message to nick: %s. nick not found\n", nick);
+    sprintf(rbuf, ":localhost 401 %s %s :No such nick/channel\n", client->nick, nick);
     if (send(client->fd, rbuf, strlen(rbuf), 0) == -1) {
       log_error("could not send data to client: %s", strerror(errno));
-      return;
     }
+    return;
   }
 
   string_view_chop_by_delim(&msg, ':');
