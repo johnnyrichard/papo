@@ -15,19 +15,19 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-#ifndef CLIENT_H
-#define CLIENT_H
+#include "client.h"
+#include "log.h"
 
-#define BUFFER_SIZE 4096
+#include <stdarg.h>
+#include <stdio.h>
 
-typedef struct client {
-  int fd;
-  char nick[127];
-  char buf[BUFFER_SIZE];
-  char msg_buf[BUFFER_SIZE];
-  int msg_buf_i;
-} client_t;
-
-void client_send_msg(client_t *client, const char *fmt, ...);
-
-#endif /* CLIENT_H */
+void
+client_send_msg(client_t *client, const char *fmt, ...)
+{
+  va_list args;
+  va_start(args, fmt);
+  if (vdprintf(client->fd, fmt, args) < 0) {
+    log_error("could not send data to client: %s", client->nick);
+  }
+  va_end(args);
+}

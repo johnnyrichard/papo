@@ -238,13 +238,7 @@ server_on_user_msg(server_t     *server,
                    client_t     *client,
                    string_view_t msg)
 {
-  char rbuf[BUFFER_SIZE];
-  memset(rbuf, 0, BUFFER_SIZE);
-
-  sprintf(rbuf, "001 %s :Welcome!\n", client->nick);
-  if (send(client->fd, rbuf, strlen(rbuf), 0) == -1) {
-    log_error("could not send data to client: %s", strerror(errno));
-  }
+  client_send_msg(client, "001 %s :Welcome!\n", client->nick);
 }
 
 static void
@@ -252,13 +246,7 @@ server_on_ping_msg(server_t     *server,
                    client_t     *client, 
                    string_view_t msg)
 {
-  char rbuf[BUFFER_SIZE];
-  memset(rbuf, 0, BUFFER_SIZE);
-
-  sprintf(rbuf, "PONG %.*s\n", msg.size, msg.data);
-  if (send(client->fd, rbuf, strlen(rbuf), 0) == -1) {
-    log_error("could not send data to client: %s", strerror(errno));
-  }
+  client_send_msg(client, "PONG %.*s\n", msg.size, msg.data);
 }
 
 static void
@@ -270,23 +258,13 @@ server_on_privmsg_msg(server_t     *server,
 
   char nick[sv_nick.size + 1];
   string_view_to_cstr(&sv_nick, nick);
-  client_t *client_recv = hash_table_get(server->client_table, nick);
+  client_t *client_receiver = hash_table_get(server->client_table, nick);
 
-  char rbuf[BUFFER_SIZE];
-  memset(rbuf, 0, BUFFER_SIZE);
-
-  if (client_recv == NULL) {
-    sprintf(rbuf, ":localhost 401 %s %s :No such nick/channel\n", client->nick, nick);
-    if (send(client->fd, rbuf, strlen(rbuf), 0) == -1) {
-      log_error("could not send data to client: %s", strerror(errno));
-    }
+  if (client_receiver == NULL) {
+    client_send_msg(client, ":localhost 401 %s %s :No such nick/channel\n", client->nick, nick);
     return;
   }
 
   string_view_chop_by_delim(&msg, ':');
-
-  sprintf(rbuf, ":%s PRIVMSG %s :%.*s\n", client->nick, client_recv->nick, msg.size, msg.data);
-  if (send(client_recv->fd, rbuf, strlen(rbuf), 0) == -1) {
-    log_error("could not send data to client: %s", strerror(errno));
-  }
+  client_send_msg(client_receiver, ":%s PRIVMSG %s :%.*s\n", client->nick, client_receiver->nick, msg.size, msg.data);
 }
