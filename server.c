@@ -238,7 +238,12 @@ server_on_user_msg(server_t     *server,
                    client_t     *client,
                    string_view_t msg)
 {
-  client_send_msg(client, "001 %s :Welcome!\n", client->nick);
+  // FIXME: Fix server host on reply messages
+  client_send_msg(
+      client, 
+      ":localhost 001 %s :Welcome to the Internet Relay Network\n", 
+      client->nick
+  );
 }
 
 static void
@@ -246,6 +251,7 @@ server_on_ping_msg(server_t     *server,
                    client_t     *client, 
                    string_view_t msg)
 {
+  // TODO: Create custom functions for each client message
   client_send_msg(client, "PONG "SVFMT"\n", SVARG(&msg));
 }
 
