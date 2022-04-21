@@ -88,10 +88,10 @@ test_chop_by_delim_when_has_delim(const  MunitParameter params[],
   string_view_t result = string_view_chop_by_delim(&sv, ' ');
 
   char actual[10];
-  sprintf(actual, "%.*s", sv.size, sv.data);
+  sprintf(actual, SVFMT, SVARG(&sv));
   assert_string_equal(actual, "world");
 
-  sprintf(actual, "%.*s", result.size, result.data);
+  sprintf(actual, SVFMT, SVARG(&result));
   assert_string_equal(actual, "hello");
 
   return MUNIT_OK;
@@ -105,10 +105,10 @@ test_chop_by_delim_when_has_no_delim(const  MunitParameter params[],
   string_view_t result = string_view_chop_by_delim(&sv, ' ');
 
   char actual[10];
-  sprintf(actual, "%.*s", sv.size, sv.data);
+  sprintf(actual, SVFMT, SVARG(&sv));
   assert_string_equal(actual, "");
 
-  sprintf(actual, "%.*s", result.size, result.data);
+  sprintf(actual, SVFMT, SVARG(&result));
   assert_string_equal(actual, "helloworld");
 
   return MUNIT_OK;

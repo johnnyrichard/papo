@@ -246,7 +246,7 @@ server_on_ping_msg(server_t     *server,
                    client_t     *client, 
                    string_view_t msg)
 {
-  client_send_msg(client, "PONG %.*s\n", msg.size, msg.data);
+  client_send_msg(client, "PONG "SVFMT"\n", SVARG(&msg));
 }
 
 static void

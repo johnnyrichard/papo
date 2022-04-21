@@ -18,6 +18,9 @@
 #ifndef STRING_VIEW_H
 #define STRING_VIEW_H
 
+#define SVFMT "%.*s"
+#define SVARG(sv) (sv)->size, (sv)->data
+
 #include <stdlib.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -26,7 +29,6 @@ typedef struct string_view {
     size_t size;
     const char *data;
 } string_view_t;
-
 
 string_view_t string_view_new(const char *cstr, size_t size);
 

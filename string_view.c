@@ -42,7 +42,7 @@ string_view_from_cstr(const char *cstr)
 bool
 string_view_to_cstr(string_view_t *sv, char *ret)
 {
-  return sprintf(ret, "%.*s", sv->size, sv->data) < 0;
+  return sprintf(ret, SVFMT, SVARG(sv)) < 0;
 }
 
 bool
