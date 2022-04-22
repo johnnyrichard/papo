@@ -35,9 +35,11 @@
 static void server_handle_client_data(server_t *server, struct epoll_event *event);
 static void server_handle_server_data(server_t *server, struct epoll_event *event);
 static void server_client_msg_dipatcher(server_t *server, client_t *client);
+static void server_on_nick_msg(server_t *server, client_t *client, string_view_t msg);
 static void server_on_user_msg(server_t *server, client_t *client, string_view_t msg);
 static void server_on_ping_msg(server_t *server, client_t *client, string_view_t msg);
 static void server_on_privmsg_msg(server_t *server, client_t *client, string_view_t msg);
+static void server_on_join_msg(server_t *server, client_t *client, string_view_t msg);
 
 void
 server_init(server_t *server, uint32_t port)
@@ -216,11 +218,17 @@ server_handle_client_data(server_t *server, struct epoll_event *event)
 static void
 server_client_msg_dipatcher(server_t *server, client_t *client)
 {
-  string_view_t msg = string_view_from_cstr(client->msg_buf);
+  string_view_t msg;
+  msg = string_view_from_cstr(client->msg_buf);
+  msg = string_view_chop_by_delim(&msg, '\r');
+
   string_view_t msg_type = string_view_chop_by_delim(&msg, ' ');
 
   if (msg_type.size == 0) {
     return;
+  } 
+  if (string_view_eq(msg_type, string_view_from_cstr("NICK"))) {
+    return server_on_nick_msg(server, client, msg);
   } 
   if (string_view_eq(msg_type, string_view_from_cstr("USER"))) {
     return server_on_user_msg(server, client, msg);
@@ -230,6 +238,9 @@ server_client_msg_dipatcher(server_t *server, client_t *client)
   }
   if (string_view_eq(msg_type, string_view_from_cstr("PRIVMSG"))) {
     return server_on_privmsg_msg(server, client, msg);
+  }
+  if (string_view_eq(msg_type, string_view_from_cstr("JOIN"))) {
+    return server_on_join_msg(server, client, msg);
   }
 }
 
@@ -244,6 +255,18 @@ server_on_user_msg(server_t     *server,
       ":localhost 001 %s :Welcome to the Internet Relay Network\n", 
       client->nick
   );
+}
+
+static void
+server_on_nick_msg(server_t     *server,
+                   client_t     *client,
+                   string_view_t msg)
+{
+  hash_table_remove(server->client_table, client->nick);
+
+  sprintf(client->nick, SVFMT, SVARG(&msg));
+
+  hash_table_insert(server->client_table, client->nick, client);
 }
 
 static void
@@ -273,4 +296,19 @@ server_on_privmsg_msg(server_t     *server,
 
   string_view_chop_by_delim(&msg, ':');
   client_send_msg(client_receiver, ":%s PRIVMSG %s :%.*s\n", client->nick, client_receiver->nick, msg.size, msg.data);
+}
+
+static void
+server_on_join_msg(server_t     *server,
+                   client_t     *client,
+                   string_view_t msg)
+{
+  // FIXME: Create server channel hash_table
+  client_send_msg(
+      client,
+      ":%s!~%s@localhost JOIN "SVFMT"\n",
+      client->nick,
+      client->nick,
+      SVARG(&msg)
+  );
 }
