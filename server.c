@@ -295,7 +295,7 @@ server_on_privmsg_msg(server_t     *server,
   }
 
   string_view_chop_by_delim(&msg, ':');
-  client_send_msg(client_receiver, ":%s PRIVMSG %s :%.*s\n", client->nick, client_receiver->nick, msg.size, msg.data);
+  client_send_msg(client_receiver, ":%s PRIVMSG %s :"SVFMT"\n", client->nick, client_receiver->nick, SVARG(&msg));
 }
 
 static void
