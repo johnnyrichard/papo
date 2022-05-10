@@ -15,6 +15,7 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
+#include "channel.h"
 #include "client.h"
 #include "log.h"
 #include "server.h"
@@ -76,7 +77,13 @@ server_init(server_t *server, uint32_t port)
 
   server->client_table = hash_table_new();
   if (server->client_table == NULL) {
-    log_fatal("could not create server->hash_table");
+    log_fatal("could not create server->client_table");
+    exit(EXIT_FAILURE);
+  }
+
+  server->channel_table = hash_table_new();
+  if (server->client_table == NULL) {
+    log_fatal("could not create server->channel_table");
     exit(EXIT_FAILURE);
   }
 
@@ -303,7 +310,25 @@ server_on_join_msg(server_t     *server,
                    client_t     *client,
                    string_view_t msg)
 {
-  // FIXME: Create server channel hash_table
+  channel_t* channel = NULL;
+
+  channel = (channel_t*) hash_table_get(server->channel_table, msg.data);
+  if (channel == NULL) {
+    string_view_chop_by_delim(&msg, '#');
+
+    char channel_name[msg.size + 1];
+    string_view_to_cstr(&msg, channel_name);
+
+    // FIXME: Destroy channel when everyone leave channel or server get destroyed
+    channel = channel_new(channel_name);
+    if (channel == NULL) {
+      fprintf(stderr, "server_on_join_msg: could not create new channel\n");
+      return;
+    }
+    channel_add_client(channel, client);
+    hash_table_insert(server->channel_table, channel->name, channel);
+  }
+
   client_send_msg(
       client,
       ":%s!~%s@localhost JOIN "SVFMT"\n",

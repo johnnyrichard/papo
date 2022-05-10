@@ -1,6 +1,6 @@
 /*
  * Papo IRC Server
- * Copyright (C) 2021 Johnny Richard
+ * Copyright (C) 2022 Johnny Richard
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU Affero General Public License as published by
@@ -15,28 +15,23 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-#ifndef SERVER_H
-#define SERVER_H
+#ifndef CHANNEL_H
+#define CHANNEL_H
 
+#include "client.h"
 #include "hash_table.h"
 
 #include <stdint.h>
 #include <stdbool.h>
-#include <sys/epoll.h>
 
-#define MAXEVENTS 64
-
-typedef struct server {
-  int fd;
-  int epoll_fd;
-  struct epoll_event events[MAXEVENTS];
+typedef struct channel {
+  char name[128];
   hash_table_t *client_table;
-  hash_table_t *channel_table;
-  bool running;
-} server_t;
+} channel_t;
 
-void server_init(server_t *server, uint32_t port);
-void server_run(server_t *server);
-void server_destroy(server_t *server);
+// TODO: Broadcast message to connected clients
+channel_t* channel_new(char *name);
+void channel_add_client(channel_t* channel, client_t* client);
+void channel_destroy(channel_t *channel);
 
-#endif /* SERVER_H */
+#endif /* CHANNEL_H */

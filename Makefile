@@ -1,8 +1,8 @@
 CC=gcc
 
 .PHONY: all
-all: main.c server.c log.o hash_table.o string_view.o client.o
-	$(CC) -ggdb -o papo main.c server.c log.o hash_table.o string_view.o client.o
+all: main.c server.c log.o hash_table.o string_view.o client.o channel.o
+	$(CC) -ggdb -o papo main.c server.c log.o hash_table.o string_view.o client.o channel.o
 
 .PHONY: test
 test: all
